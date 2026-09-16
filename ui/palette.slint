@@ -115,10 +115,16 @@ export component Palette inherits Window {
           color: index == root.selected ? #ffffffb3 : root.muted;
         }
         Text {
-          x: parent.width - 120px; width: 98px; height: parent.height;
-          text: row.shortcut + (row.submenu ? "  ›" : ""); font-size: 12px;
+          x: parent.width - 120px; width: 78px; height: parent.height;
+          text: row.shortcut; font-size: 12px;
           color: index == root.selected ? #ffffffb3 : root.muted;
           horizontal-alignment: right; vertical-alignment: center;
+        }
+        Text {
+          x: parent.width - 34px; width: 12px; height: parent.height;
+          text: row.submenu ? "›" : ""; font-size: 14px;
+          color: index == root.selected ? #ffffffb3 : root.muted;
+          horizontal-alignment: center; vertical-alignment: center;
         }
         TouchArea {
           enabled: !row.disabled;
