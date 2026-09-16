@@ -61,6 +61,10 @@ mod theme_tests {
 }
 
 fn sync_theme(ui: &Palette, rt: &Shared) {
+  // Quick menu keys are commands, not IME composition. Enable composition
+  // only after entering search so Chinese input cannot swallow bare letters.
+  ui.window()
+    .with_winit_window(|window| window.set_ime_allowed(!ui.get_quick()));
   #[cfg(target_os = "macos")]
   clip_native_corners(ui);
   // Before the event loop starts, Slint may not have a native window yet.
@@ -131,6 +135,8 @@ fn render(ui: &Palette, rt: &Runtime, zh: bool, scroll_to_selection: bool) {
   )));
   ui.set_query(state.query().into());
   ui.set_quick(state.quick());
+  ui.window()
+    .with_winit_window(|window| window.set_ime_allowed(!state.quick()));
   ui.set_heading(state.title().into());
   ui.set_selected(state.selected().map(|i| i as i32).unwrap_or(-1));
   ui.set_empty_label(if zh { "没有匹配项" } else { "No matches" }.into());
