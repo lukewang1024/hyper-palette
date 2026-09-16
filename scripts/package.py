@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import zipfile
@@ -48,14 +49,17 @@ def main():
             shutil.copy2(ROOT / "LICENSE", stage / "LICENSE")
         executable = "hyper-palette.exe" if "windows" in args.target else "hyper-palette"
         shutil.copy2(binary, stage / executable)
-        (stage / executable).chmod(0o755)
+        executables = {executable}
         if "apple" in args.target:
             contents = stage / "Hyper Palette Prototype.app" / "Contents"
             macos = contents / "MacOS"
             macos.mkdir(parents=True)
             shutil.copy2(binary, macos / "hyper-palette")
             shutil.copy2(ROOT / "macos" / "demo", macos / "demo")
-            (macos / "demo").chmod(0o755)
+            executables.update({
+                "Hyper Palette Prototype.app/Contents/MacOS/demo",
+                "Hyper Palette Prototype.app/Contents/MacOS/hyper-palette",
+            })
             info = plistlib.loads((ROOT / "macos" / "Info.plist").read_bytes())
             info["CFBundleVersion"] = release_version
             info["CFBundleShortVersionString"] = release_version
@@ -67,7 +71,16 @@ def main():
         with zipfile.ZipFile(archive, "x", zipfile.ZIP_DEFLATED) as output:
             for path in sorted(stage.rglob("*")):
                 if path.is_file():
-                    output.write(path, path.relative_to(stage))
+                    name = path.relative_to(stage).as_posix()
+                    info = zipfile.ZipInfo.from_file(path, name)
+                    # Archive semantics must not depend on the build host:
+                    # Windows chmod cannot set POSIX executable permission bits.
+                    info.create_system = 3  # Unix ZIP attributes
+                    mode = 0o755 if name in executables else 0o644
+                    info.external_attr = (stat.S_IFREG | mode) << 16
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    with path.open("rb") as source, output.open(info, "w") as destination:
+                        shutil.copyfileobj(source, destination)
     print(archive)
 
 
