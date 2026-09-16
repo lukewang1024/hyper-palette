@@ -1,0 +1,17 @@
+[package]
+name = "hyper-palette"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+description = "A resident cross-platform command palette with a JSONL protocol"
+repository = "https://github.com/lukewang1024/hyper-palette"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+slint = { version = "=1.17.1", default-features = false, features = ["std", "backend-winit", "renderer-software", "compat-1-2", "unstable-winit-030", "accessibility"] }
+sys-locale = "0.3"
+
+[build-dependencies]
+slint-build = "=1.17.1"

@@ -1,0 +1,5 @@
+/target/
+/dist/
+/stage/
+__pycache__/
+.DS_Store

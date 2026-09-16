@@ -1,0 +1,61 @@
+{
+  "keys": {
+    "menus": {
+      "config": [
+        ["a", "Example list", "menu.roles"],
+        ["k", "Edit configuration", "system.hyperKeys"],
+        ["r", "Reload configuration", "system.reload"],
+        ["c", "Clipboard tools", "menu.clipboard"],
+        ["s", "Screenshot", "capture.screenshot"],
+        ["v", "Record screen", "capture.record"],
+        ["d", "Display settings", "system.displays"],
+        ["f", "Focus settings", "system.focus"]
+      ],
+      "clipboard": [
+        ["v", "Clipboard history", "clipboard.history"],
+        ["s", "Send image", "clipboard.send"],
+        ["t", "Sync status", "clipboard.targets"]
+      ]
+    },
+    "roles": {
+      "01": {"apps": ["Example detail"]},
+      "02": {"apps": ["Example detail"]},
+      "03": {"apps": ["Example detail"]},
+      "04": {"apps": ["Example detail"]},
+      "05": {"apps": ["Example detail"]},
+      "06": {"apps": ["Example detail"]},
+      "07": {"apps": ["Example detail"]},
+      "08": {"apps": ["Example detail"]},
+      "09": {"apps": ["Example detail"]},
+      "10": {"apps": ["Example detail"]},
+      "11": {"apps": ["Example detail"]},
+      "12": {"apps": ["Example detail"]}
+    }
+  },
+  "labels": {
+    "menu.config": ["Hyper Palette", "Hyper 面板"],
+    "menu.roles": ["Example list", "示例列表"],
+    "menu.clipboard": ["Clipboard tools", "剪贴板工具"],
+    "system.hyperKeys": ["Edit configuration", "编辑配置"],
+    "system.reload": ["Reload configuration", "重新加载配置"],
+    "capture.screenshot": ["Screenshot", "截图"],
+    "capture.record": ["Record screen", "录屏"],
+    "system.displays": ["Display settings", "显示器设置"],
+    "system.focus": ["Focus settings", "专注设置"],
+    "clipboard.history": ["Clipboard history", "剪贴板历史"],
+    "clipboard.send": ["Send image", "发送图片"],
+    "clipboard.targets": ["Sync status", "同步状态"],
+    "role.01": ["Example 01", "示例 01"],
+    "role.02": ["Example 02", "示例 02"],
+    "role.03": ["Example 03", "示例 03"],
+    "role.04": ["Example 04", "示例 04"],
+    "role.05": ["Example 05", "示例 05"],
+    "role.06": ["Example 06", "示例 06"],
+    "role.07": ["Example 07", "示例 07"],
+    "role.08": ["Example 08", "示例 08"],
+    "role.09": ["Example 09", "示例 09"],
+    "role.10": ["Example 10", "示例 10"],
+    "role.11": ["Example 11", "示例 11"],
+    "role.12": ["Example 12", "示例 12"]
+  }
+}

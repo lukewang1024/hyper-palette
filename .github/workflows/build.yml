@@ -1,0 +1,97 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  native:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            exe: ''
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            exe: ''
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            exe: '.exe'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: python -m unittest discover -s tests -p "test_*.py"
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Package and executable smoke test
+        run: python scripts/package.py --target ${{ matrix.target }} --binary target/${{ matrix.target }}/release/hyper-palette${{ matrix.exe }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    name: Linux x64 (glibc 2.28)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build against oldest supported glibc
+        run: docker run --rm -v "$PWD:/work" -w /work almalinux:8 sh scripts/build-linux.sh
+      - name: Runtime and GUI protocol smoke test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-x11-0 libxcursor1 libxrandr2 libxi6 libfontconfig1 xvfb
+          xvfb-run -a python3 tests/protocol_smoke.py target/x86_64-unknown-linux-gnu/release/hyper-palette
+      - name: Package
+        run: python3 scripts/package.py --target x86_64-unknown-linux-gnu --binary target/x86_64-unknown-linux-gnu/release/hyper-palette
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: x86_64-unknown-linux-gnu
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Draft versioned release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [native, linux]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Verify assets and generate SHA256 manifest
+        run: python3 scripts/checksums.py dist
+      - name: Create draft (never overwrite an existing release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS --verify-tag --draft --title "Hyper Palette $RELEASE_TAG" --notes-file RELEASE_NOTES.md
