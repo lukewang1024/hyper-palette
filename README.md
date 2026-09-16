@@ -73,7 +73,8 @@ repeatable actions without closing (for resize modes). Such action events carry
 their ID-to-callback whitelist for every page until the session ends.
 `{"type":"navigate","request_id":"...","action":"edit.down"}` forwards
 adapter-owned Hyper navigation; supported commands also include `edit.up`,
-`edit.left`/`back`, `edit.right`/`accept` and `close`.
+`back`, `accept` and `close`. `edit.left/right/home/end` moves the search cursor;
+`select.*` extends its selection. `edit.pageup/pagedown` moves by nine rows.
 
 Output:
 

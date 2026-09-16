@@ -218,6 +218,51 @@ fn activate(ui: &Palette, rt: &Shared, zh: bool) {
   }
 }
 
+fn navigate(ui: &Palette, rt: &Shared, action: &str, zh: bool) {
+  match action {
+    "edit.up" | "select.up" => ui.invoke_navigate(-1),
+    "edit.down" | "select.down" => ui.invoke_navigate(1),
+    "edit.pageup" | "select.pageup" => ui.invoke_navigate(-9),
+    "edit.pagedown" | "select.pagedown" => ui.invoke_navigate(9),
+    "back" => ui.invoke_back(),
+    "accept" => ui.invoke_activate(),
+    "close" => ui.invoke_dismiss(),
+    _ => {
+      use slint::platform::{Key, WindowEvent};
+      let key = match action.split('.').nth(1) {
+        Some("left") => Key::LeftArrow,
+        Some("right") => Key::RightArrow,
+        Some("home") => Key::Home,
+        Some("end") => Key::End,
+        _ => return,
+      };
+      if let Some(state) = rt.borrow_mut().state.as_mut() {
+        state.begin_search();
+      }
+      render(ui, &rt.borrow(), zh, false);
+      ui.invoke_focus_input();
+      // Adapter-owned Hyper chords must edit text without their global modifiers.
+      for modifier in [Key::Control, Key::Alt, Key::Meta, Key::Shift] {
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+          text: modifier.into(),
+        });
+      }
+      if action.starts_with("select.") {
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+          text: Key::Shift.into(),
+        });
+      }
+      ui.window()
+        .dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+      ui.window()
+        .dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+      ui.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Shift.into(),
+      });
+    }
+  }
+}
+
 fn show(ui: &Palette, rt: &Shared, request: Request, zh: bool) {
   let id = request.request_id.clone();
   let state = match State::new(request) {
@@ -394,6 +439,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   });
   let weak = ui.as_weak();
   let cloned = rt.clone();
+  ui.on_edit_input(move |action| navigate(&weak.unwrap(), &cloned, &action, zh));
+  let weak = ui.as_weak();
+  let cloned = rt.clone();
   let explicit_theme = args.iter().any(|arg| arg == "--dark" || arg == "--light");
   ui.window().on_winit_window_event(move |_, event| {
     let Some(ui) = weak.upgrade() else {
@@ -466,14 +514,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_ref()
             .is_some_and(|state| state.request.request_id == request_id)
           {
-            match action.as_str() {
-              "edit.up" | "select.up" => ui.invoke_navigate(-1),
-              "edit.down" | "select.down" => ui.invoke_navigate(1),
-              "edit.left" | "back" => ui.invoke_back(),
-              "edit.right" | "accept" => ui.invoke_activate(),
-              "close" => ui.invoke_dismiss(),
-              _ => {}
-            }
+            navigate(&ui, &cloned, &action, zh);
           }
         }
         Ok(Command::Hide { request_id }) => {

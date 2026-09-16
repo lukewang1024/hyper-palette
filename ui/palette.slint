@@ -31,6 +31,7 @@ export component Palette inherits Window {
   callback accelerator(string);
   callback quick-key(string) -> bool;
   callback begin-search();
+  callback edit-input(string);
   callback dispatch-command(string);
   public function focus-input() { input.focus(); }
   forward-focus: keys;
@@ -56,8 +57,8 @@ export component Palette inherits Window {
       if event.modifiers.control && event.modifiers.alt {
         if event.text.to-lowercase() == "j" { root.navigate(1); return accept; }
         if event.text.to-lowercase() == "k" { root.navigate(-1); return accept; }
-        if event.text.to-lowercase() == "h" { root.back(); return accept; }
-        if event.text.to-lowercase() == "l" { root.activate(); return accept; }
+        if event.text.to-lowercase() == "h" { root.edit-input("edit.left"); return accept; }
+        if event.text.to-lowercase() == "l" { root.edit-input("edit.right"); return accept; }
       }
       if event.modifiers.alt && !event.modifiers.control { root.accelerator(event.text); return accept; }
       return reject;
