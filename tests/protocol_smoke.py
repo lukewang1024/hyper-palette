@@ -61,6 +61,24 @@ def main():
             send({"type": "hide", "request_id": request_id})
             event = expect("dismissed", request_id)
             assert event["reason"] in ("client", "blur")
+        rid = "dynamic-session"
+        def page(name, item):
+            return dict(request_id=rid, root=name, menus={name:dict(title=name, items=[item], quick=True)})
+        send(dict(type='show', request=page('root', dict(id='open-child', title='Child', navigate=True))))
+        expect('shown', rid)
+        send(dict(type='navigate', request_id=rid, action='accept'))
+        assert expect('action', rid)['keep_open']
+        send(dict(type='push', request=page('child', dict(id='repeat', title='Resize', keep_open=True))))
+        for _ in range(3):
+            send(dict(type='navigate', request_id=rid, action='accept'))
+            event=expect('action', rid)
+            assert event['action']=='repeat' and event['keep_open']
+        send(dict(type='navigate', request_id=rid, action='back'))
+        send(dict(type='navigate', request_id=rid, action='accept'))
+        assert expect('action', rid)['action']=='open-child'
+        send(dict(type='push', request=page('leaf', dict(id='done', title='Done'))))
+        send(dict(type='navigate', request_id=rid, action='accept'))
+        assert expect('action', rid)['action']=='done'
         send({"type": "quit"})
         assert process.wait(timeout=8) == 0
         print(json.dumps({"passed": True, "show_ack_ms": latencies,

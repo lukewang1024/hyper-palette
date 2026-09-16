@@ -21,6 +21,10 @@ pub struct Item {
   pub disabled: bool,
   #[serde(default)]
   pub submenu: Option<String>,
+  #[serde(default)]
+  pub navigate: bool,
+  #[serde(default)]
+  pub keep_open: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -82,6 +86,40 @@ pub struct State {
 }
 
 impl State {
+  pub fn push(&mut self, request: Request) -> Result<(), &'static str> {
+    request.validate()?;
+    if request.request_id != self.request.request_id {
+      return Err("mismatched request ID");
+    }
+    if self.parents.len() >= 32 {
+      return Err("navigation depth exceeded");
+    }
+    if request
+      .menus
+      .keys()
+      .any(|key| self.request.menus.contains_key(key))
+    {
+      return Err("duplicate dynamic menu ID");
+    }
+    let mut merged = self.request.clone();
+    merged.menus.extend(request.menus);
+    merged.validate()?;
+    self.parents.push(self.page.clone());
+    self.page = Page {
+      menu: request.root,
+      ..Page::default()
+    };
+    self.request = merged;
+    self.select_first();
+    Ok(())
+  }
+  pub fn keep_open(&self) -> bool {
+    self
+      .page
+      .selected
+      .and_then(|index| self.rows().get(index).copied())
+      .is_some_and(|item| item.keep_open || item.navigate)
+  }
   pub fn new(request: Request) -> Result<Self, &'static str> {
     request.validate()?;
     let page = Page {
@@ -231,6 +269,8 @@ pub fn demo(zh: bool) -> Request {
       .map(|entry| {
         let action = entry[2].as_str().unwrap();
         Item {
+          navigate: false,
+          keep_open: false,
           id: action.into(),
           title: label(action, entry[1].as_str().unwrap()),
           detail: action.into(),
@@ -261,6 +301,8 @@ pub fn demo(zh: bool) -> Request {
     .map(|(role, entry)| {
       let id = format!("role.{role}");
       Item {
+        navigate: false,
+        keep_open: false,
         id: format!("prototype.configure.{role}"),
         title: label(&id, role),
         detail: entry["apps"]
@@ -298,6 +340,39 @@ pub fn demo(zh: bool) -> Request {
 #[cfg(test)]
 mod tests {
   use super::*;
+  #[test]
+  fn dynamic_pages_restore_parent_query_selection_and_quick_mode() {
+    let mut state = State::new(demo(false)).unwrap();
+    state.search("clipboard".into());
+    let mut child = demo(false);
+    child.menus = BTreeMap::from([(
+      "dynamic".into(),
+      child.menus.remove("menu.clipboard").unwrap(),
+    )]);
+    child.root = "dynamic".into();
+    state.push(child.clone()).unwrap();
+    assert_eq!(state.depth(), 1);
+    assert!(state.quick());
+    assert!(state.push(child.clone()).is_err());
+    child.request_id = "stale".into();
+    assert!(state.push(child).is_err());
+    assert!(state.back());
+    assert_eq!(state.query(), "clipboard");
+    assert!(!state.quick());
+  }
+  #[test]
+  fn repeated_actions_keep_the_current_page() {
+    let mut request = demo(false);
+    let menu = request.menus.get_mut("menu.config").unwrap();
+    menu.items[0].submenu = None;
+    menu.items[0].keep_open = true;
+    let mut state = State::new(request).unwrap();
+    for _ in 0..3 {
+      assert!(state.keep_open());
+      assert!(state.activate().is_some());
+    }
+    assert_eq!(state.depth(), 0);
+  }
   #[test]
   fn quick_keys_follow_menu_and_submenu_configuration() {
     let mut state = State::new(demo(false)).unwrap();

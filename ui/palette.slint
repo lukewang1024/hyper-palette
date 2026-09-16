@@ -45,6 +45,11 @@ export component Palette inherits Window {
     capture-key-pressed(event) => {
       if root.composing { return reject; }
       if event.text == Key.Escape { root.dismiss(); return accept; }
+      if root.quick && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta {
+        if event.text == "/" { root.begin-search(); return accept; }
+        let key = event.text == Key.Return ? "return" : event.text == Key.Backspace ? "delete" : event.text.to-lowercase();
+        if root.quick-key((event.modifiers.shift ? "S-" : "") + key) { return accept; }
+      }
       if event.text == Key.UpArrow { root.navigate(-1); return accept; }
       if event.text == Key.DownArrow { root.navigate(1); return accept; }
       if event.text == Key.Backspace && root.query == "" { root.back(); return accept; }
@@ -55,10 +60,6 @@ export component Palette inherits Window {
         if event.text.to-lowercase() == "l" { root.activate(); return accept; }
       }
       if event.modifiers.alt && !event.modifiers.control { root.accelerator(event.text); return accept; }
-      if root.quick && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && !event.modifiers.shift {
-        if event.text == "/" { root.begin-search(); return accept; }
-        if root.quick-key(event.text) { return accept; }
-      }
       return reject;
     }
     Rectangle {

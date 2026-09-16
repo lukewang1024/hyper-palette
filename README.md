@@ -63,6 +63,18 @@ depth is capped at 32. Maximum 64 menus / 4096 total items. Unknown fields are
 rejected. Invalid requests leave the active menu intact. Use unique request IDs
 per invocation; stale `hide` IDs are ignored. Submenus remain inside the window.
 
+Adapters can lazily supply dynamic pages with `{"type":"push","request":...}`.
+The request must retain the current `request_id` and use fresh menu IDs. The
+renderer preserves the parent query, selection and search mode for Backspace.
+Items with `navigate: true` show a submenu arrow and emit an action without
+closing; the adapter then pushes the computed page. `keep_open: true` emits
+repeatable actions without closing (for resize modes). Such action events carry
+`keep_open: true`; all other action events end the session. Adapters must keep
+their ID-to-callback whitelist for every page until the session ends.
+`{"type":"navigate","request_id":"...","action":"edit.down"}` forwards
+adapter-owned Hyper navigation; supported commands also include `edit.up`,
+`edit.left`/`back`, `edit.right`/`accept` and `close`.
+
 Output:
 
 ```json

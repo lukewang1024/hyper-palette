@@ -19,6 +19,8 @@ slint::include_modules!();
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
   Show { request: Request },
+  Push { request: Request },
+  Navigate { request_id: String, action: String },
   Hide { request_id: String },
   Quit,
 }
@@ -129,7 +131,7 @@ fn render(ui: &Palette, rt: &Runtime, zh: bool, scroll_to_selection: bool) {
         detail: item.detail.clone().into(),
         shortcut: item.shortcut.clone().into(),
         disabled: item.disabled,
-        submenu: item.submenu.is_some(),
+        submenu: item.submenu.is_some() || item.navigate,
       })
       .collect::<Vec<_>>(),
   )));
@@ -218,7 +220,20 @@ fn activate(ui: &Palette, rt: &Shared, zh: bool) {
   if ui.get_composing() {
     return;
   }
+  let keep_open = rt.borrow().state.as_ref().is_some_and(State::keep_open);
   let action = rt.borrow_mut().state.as_mut().and_then(State::activate);
+  if keep_open && let Some(action) = action {
+    let id = rt
+      .borrow()
+      .state
+      .as_ref()
+      .unwrap()
+      .request
+      .request_id
+      .clone();
+    emit(json!({"type":"action", "request_id":id, "action":action, "keep_open":true}));
+    return;
+  }
   if action.is_some() {
     finish(ui, rt, "action", action);
   } else {
@@ -452,6 +467,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let ui = weak.unwrap();
       match serde_json::from_str::<Command>(&frame) {
         Ok(Command::Show { request }) => show(&ui, &cloned, request, zh),
+        Ok(Command::Push { request }) => {
+          let id = request.request_id.clone();
+          let result = cloned
+            .borrow_mut()
+            .state
+            .as_mut()
+            .ok_or("no active session")
+            .and_then(|state| state.push(request));
+          match result {
+            Ok(()) => {
+              render(&ui, &cloned.borrow(), zh, true);
+              ui.invoke_focus_input();
+            }
+            Err(error) => emit(json!({"type":"error", "request_id":id, "message":error})),
+          }
+        }
+        Ok(Command::Navigate { request_id, action }) => {
+          if cloned
+            .borrow()
+            .state
+            .as_ref()
+            .is_some_and(|state| state.request.request_id == request_id)
+          {
+            match action.as_str() {
+              "edit.up" | "select.up" => ui.invoke_navigate(-1),
+              "edit.down" | "select.down" => ui.invoke_navigate(1),
+              "edit.left" | "back" => ui.invoke_back(),
+              "edit.right" | "accept" => ui.invoke_activate(),
+              "close" => ui.invoke_dismiss(),
+              _ => {}
+            }
+          }
+        }
         Ok(Command::Hide { request_id }) => {
           if cloned
             .borrow()
@@ -507,7 +555,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
       }
     });
-    emit(json!({"type":"ready", "protocol":1}));
+    emit(
+      json!({"type":"ready", "protocol":1, "capabilities":["dynamic_pages", "keep_open", "navigate", "quick_keys"]}),
+    );
     slint::run_event_loop_until_quit()?;
     return Ok(());
   }
