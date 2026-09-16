@@ -28,8 +28,52 @@ struct Runtime {
   state: Option<State>,
   focused: bool,
   anchor: Option<slint::PhysicalPosition>,
+  theme_override: Option<bool>,
 }
 type Shared = Rc<RefCell<Runtime>>;
+
+fn resolved_theme(explicit: Option<bool>, native: Option<bool>, current: bool) -> bool {
+  explicit.or(native).unwrap_or(current)
+}
+
+#[cfg(test)]
+mod theme_tests {
+  use super::resolved_theme;
+
+  #[test]
+  fn native_theme_arriving_after_window_creation_replaces_initial_default() {
+    let before_window = resolved_theme(None, None, false);
+    assert!(resolved_theme(None, Some(true), before_window));
+  }
+
+  #[test]
+  fn unknown_theme_does_not_reset_dark_and_reopening_tracks_both_directions() {
+    assert!(resolved_theme(None, None, true));
+    assert!(!resolved_theme(None, Some(false), true));
+    assert!(resolved_theme(None, Some(true), false));
+  }
+
+  #[test]
+  fn explicit_theme_wins_over_system_events() {
+    assert!(!resolved_theme(Some(false), Some(true), true));
+    assert!(resolved_theme(Some(true), Some(false), false));
+  }
+}
+
+fn sync_theme(ui: &Palette, rt: &Shared) {
+  // Before the event loop starts, Slint may not have a native window yet.
+  // Unknown is not Light: preserve the last value until the window is ready.
+  let native = ui
+    .window()
+    .with_winit_window(|w| w.theme())
+    .flatten()
+    .map(|theme| theme == winit::window::Theme::Dark);
+  ui.set_dark(resolved_theme(
+    rt.borrow().theme_override,
+    native,
+    ui.get_dark(),
+  ));
+}
 
 fn emit(value: serde_json::Value) {
   let mut out = io::stdout().lock();
@@ -159,6 +203,7 @@ fn show(ui: &Palette, rt: &Shared, request: Request, zh: bool) {
     rt.borrow_mut().state = None;
     return;
   }
+  sync_theme(ui, rt);
   ui.window().with_winit_window(|window| {
     // The invoking adapter can later supply its target-monitor anchor. For now
     // use this window's monitor and pin its top edge at the upper quarter.
@@ -304,7 +349,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match event {
       WindowEvent::Focused(true) => {
         cloned.borrow_mut().focused = true;
+        sync_theme(&ui, &cloned);
       }
+      WindowEvent::RedrawRequested => sync_theme(&ui, &cloned),
       WindowEvent::Focused(false) => {
         if cloned.borrow().focused {
           finish(&ui, &cloned, "blur", None);
@@ -327,13 +374,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   });
   // Create and reuse the native window, including while the palette is hidden.
   ui.show()?;
-  ui.set_dark(if explicit_theme {
-    args.contains(&"--dark".into())
-  } else {
-    ui.window()
-      .with_winit_window(|w| w.theme() == Some(winit::window::Theme::Dark))
-      .unwrap_or(false)
-  });
+  rt.borrow_mut().theme_override = explicit_theme.then(|| args.contains(&"--dark".into()));
+  sync_theme(&ui, &rt);
   ui.hide()?;
   #[cfg(target_os = "linux")]
   let _theme_watchers = (!explicit_theme).then(|| linux_theme::watch(ui.as_weak()));
