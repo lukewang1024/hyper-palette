@@ -1761,6 +1761,8 @@ checksum = "48ce8546b993eaf241d69ded33b1be6d205dd9857ec879d9d18bd05d3676e144"
 name = "hyper-palette"
 version = "0.1.0"
 dependencies = [
+ "objc2 0.6.4",
+ "objc2-quartz-core 0.3.2",
  "serde",
  "serde_json",
  "slint",

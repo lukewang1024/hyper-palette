@@ -15,6 +15,7 @@ export component Palette inherits Window {
   in property <string> empty-label;
   in property <bool> dark: false;
   in property <bool> composing: false;
+  out property <length> corner-radius: 13px;
   in-out property <string> query;
   in-out property <length> scroll-y <=> list.viewport-y;
   private property <color> fg: dark ? #f1f1f4 : #242428;
@@ -31,7 +32,7 @@ export component Palette inherits Window {
   public function focus-input() { input.focus(); }
   forward-focus: keys;
   Rectangle {
-    border-radius: 13px;
+    border-radius: root.corner-radius;
     border-width: 1px;
     border-color: root.dark ? #ffffff0c : #0000000d;
     background: root.dark ? #232328 : #f5f5f7;

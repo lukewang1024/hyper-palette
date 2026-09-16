@@ -61,6 +61,8 @@ mod theme_tests {
 }
 
 fn sync_theme(ui: &Palette, rt: &Shared) {
+  #[cfg(target_os = "macos")]
+  clip_native_corners(ui);
   // Before the event loop starts, Slint may not have a native window yet.
   // Unknown is not Light: preserve the last value until the window is ready.
   let native = ui
@@ -73,6 +75,35 @@ fn sync_theme(ui: &Palette, rt: &Shared) {
     native,
     ui.get_dark(),
   ));
+}
+
+#[cfg(target_os = "macos")]
+fn clip_native_corners(ui: &Palette) {
+  use objc2::{MainThreadMarker, msg_send, rc::Retained, runtime::AnyObject};
+  use objc2_quartz_core::CALayer;
+  use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+  // Softbuffer's CoreGraphics surface uses NoneSkipFirst (no alpha).
+  // Clip its opaque sublayer at the native view boundary, in logical points.
+  // The layer mask automatically follows bounds changes as results resize.
+  let Some(_main_thread) = MainThreadMarker::new() else {
+    return;
+  };
+  ui.window().with_winit_window(|window| {
+    let Ok(handle) = window.window_handle() else {
+      return;
+    };
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+      return;
+    };
+    // SAFETY: winit lends a live NSView on the UI/main thread for this closure.
+    let view: &AnyObject = unsafe { handle.ns_view.cast().as_ref() };
+    let layer: Option<Retained<CALayer>> = unsafe { msg_send![view, layer] };
+    if let Some(layer) = layer {
+      layer.setCornerRadius(ui.get_corner_radius() as f64);
+      layer.setMasksToBounds(true);
+    }
+  });
 }
 
 fn emit(value: serde_json::Value) {
