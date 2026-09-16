@@ -38,30 +38,6 @@ fn resolved_theme(explicit: Option<bool>, native: Option<bool>, current: bool) -
   explicit.or(native).unwrap_or(current)
 }
 
-#[cfg(test)]
-mod theme_tests {
-  use super::resolved_theme;
-
-  #[test]
-  fn native_theme_arriving_after_window_creation_replaces_initial_default() {
-    let before_window = resolved_theme(None, None, false);
-    assert!(resolved_theme(None, Some(true), before_window));
-  }
-
-  #[test]
-  fn unknown_theme_does_not_reset_dark_and_reopening_tracks_both_directions() {
-    assert!(resolved_theme(None, None, true));
-    assert!(!resolved_theme(None, Some(false), true));
-    assert!(resolved_theme(None, Some(true), false));
-  }
-
-  #[test]
-  fn explicit_theme_wins_over_system_events() {
-    assert!(!resolved_theme(Some(false), Some(true), true));
-    assert!(resolved_theme(Some(true), Some(false), false));
-  }
-}
-
 fn sync_theme(ui: &Palette, rt: &Shared) {
   // Quick menu keys are commands, not IME composition. Enable composition
   // only after entering search so Chinese input cannot swallow bare letters.
@@ -563,4 +539,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   }
   slint::run_event_loop()?;
   Ok(())
+}
+
+#[cfg(test)]
+mod theme_tests {
+  use super::resolved_theme;
+
+  #[test]
+  fn native_theme_arriving_after_window_creation_replaces_initial_default() {
+    let before_window = resolved_theme(None, None, false);
+    assert!(resolved_theme(None, Some(true), before_window));
+  }
+
+  #[test]
+  fn unknown_theme_does_not_reset_dark_and_reopening_tracks_both_directions() {
+    assert!(resolved_theme(None, None, true));
+    assert!(!resolved_theme(None, Some(false), true));
+    assert!(resolved_theme(None, Some(true), false));
+  }
+
+  #[test]
+  fn explicit_theme_wins_over_system_events() {
+    assert!(!resolved_theme(Some(false), Some(true), true));
+    assert!(resolved_theme(Some(true), Some(false), false));
+  }
 }
