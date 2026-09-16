@@ -15,6 +15,7 @@ export component Palette inherits Window {
   in property <string> empty-label;
   in property <bool> dark: false;
   in property <bool> composing: false;
+  in property <bool> quick: false;
   out property <length> corner-radius: 13px;
   in-out property <string> query;
   in-out property <length> scroll-y <=> list.viewport-y;
@@ -28,6 +29,8 @@ export component Palette inherits Window {
   callback back();
   callback dismiss();
   callback accelerator(string);
+  callback quick-key(string) -> bool;
+  callback begin-search();
   callback dispatch-command(string);
   public function focus-input() { input.focus(); }
   forward-focus: keys;
@@ -52,6 +55,10 @@ export component Palette inherits Window {
         if event.text.to-lowercase() == "l" { root.activate(); return accept; }
       }
       if event.modifiers.alt && !event.modifiers.control { root.accelerator(event.text); return accept; }
+      if root.quick && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && !event.modifiers.shift {
+        if event.text == "/" { root.begin-search(); return accept; }
+        if root.quick-key(event.text) { return accept; }
+      }
       return reject;
     }
     Rectangle {

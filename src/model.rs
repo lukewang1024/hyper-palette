@@ -28,6 +28,8 @@ pub struct Item {
 pub struct Menu {
   pub title: String,
   pub items: Vec<Item>,
+  #[serde(default)]
+  pub quick: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -69,6 +71,7 @@ impl Request {
 struct Page {
   menu: String,
   query: String,
+  searching: bool,
   selected: Option<usize>, // index into filtered rows, not the original menu
 }
 
@@ -99,6 +102,27 @@ impl State {
   pub fn query(&self) -> &str {
     &self.page.query
   }
+  pub fn quick(&self) -> bool {
+    self.request.menus[&self.page.menu].quick && !self.page.searching
+  }
+  pub fn begin_search(&mut self) {
+    self.page.searching = true;
+  }
+  pub fn quick_key(&mut self, key: &str) -> bool {
+    if !self.quick() {
+      return false;
+    }
+    let index = self
+      .rows()
+      .iter()
+      .position(|item| !item.disabled && item.shortcut.eq_ignore_ascii_case(key));
+    if let Some(index) = index {
+      self.select(index);
+      true
+    } else {
+      false
+    }
+  }
   pub fn selected(&self) -> Option<usize> {
     self.page.selected
   }
@@ -124,6 +148,7 @@ impl State {
     self.page.selected = self.rows().iter().position(|item| !item.disabled);
   }
   pub fn search(&mut self, query: String) {
+    self.begin_search();
     self.page.query = query;
     self.select_first();
   }
@@ -209,7 +234,7 @@ pub fn demo(zh: bool) -> Request {
           id: action.into(),
           title: label(action, entry[1].as_str().unwrap()),
           detail: action.into(),
-          shortcut: format!("Alt+{}", entry[0].as_str().unwrap().to_uppercase()),
+          shortcut: entry[0].as_str().unwrap().into(),
           keywords: keywords(action),
           disabled: false,
           submenu: action
@@ -222,6 +247,7 @@ pub fn demo(zh: bool) -> Request {
     menus.insert(
       id.clone(),
       Menu {
+        quick: true,
         title: label(&id, name),
         items,
       },
@@ -257,6 +283,7 @@ pub fn demo(zh: bool) -> Request {
   menus.insert(
     "menu.roles".into(),
     Menu {
+      quick: false,
       title: label("menu.roles", "Roles"),
       items,
     },
@@ -271,6 +298,41 @@ pub fn demo(zh: bool) -> Request {
 #[cfg(test)]
 mod tests {
   use super::*;
+  #[test]
+  fn quick_keys_follow_menu_and_submenu_configuration() {
+    let mut state = State::new(demo(false)).unwrap();
+    assert!(state.quick_key("c"));
+    assert_eq!(state.activate(), None);
+    assert_eq!(state.depth(), 1);
+    assert!(state.quick_key("v"));
+    assert_eq!(state.activate().as_deref(), Some("clipboard.history"));
+    assert!(state.back());
+    assert!(state.quick());
+  }
+  #[test]
+  fn search_mode_never_dispatches_bare_letters_even_after_clearing_query() {
+    let mut state = State::new(demo(false)).unwrap();
+    state.begin_search();
+    assert!(!state.quick_key("c"));
+    state.search("clipboard".into());
+    state.search(String::new());
+    assert!(!state.quick_key("v"));
+  }
+  #[test]
+  fn quick_keys_ignore_disabled_items_and_are_opt_in() {
+    let mut request = demo(false);
+    let menu = request.menus.get_mut("menu.config").unwrap();
+    menu
+      .items
+      .iter_mut()
+      .find(|item| item.shortcut == "c")
+      .unwrap()
+      .disabled = true;
+    let mut state = State::new(request.clone()).unwrap();
+    assert!(!state.quick_key("c"));
+    request.menus.get_mut("menu.config").unwrap().quick = false;
+    assert!(!State::new(request).unwrap().quick_key("k"));
+  }
   #[test]
   fn bounded_height() {
     assert_eq!(

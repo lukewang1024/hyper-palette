@@ -130,13 +130,18 @@ fn render(ui: &Palette, rt: &Runtime, zh: bool, scroll_to_selection: bool) {
       .collect::<Vec<_>>(),
   )));
   ui.set_query(state.query().into());
+  ui.set_quick(state.quick());
   ui.set_heading(state.title().into());
   ui.set_selected(state.selected().map(|i| i as i32).unwrap_or(-1));
   ui.set_empty_label(if zh { "没有匹配项" } else { "No matches" }.into());
   ui.set_footer(
     format!(
       "{}  ·  {}",
-      if zh {
+      if state.quick() && zh {
+        "字母 快捷操作   / 搜索   Esc 关闭"
+      } else if state.quick() {
+        "Letter Quick action   / Search   Esc Dismiss"
+      } else if zh {
         "↑↓ 选择   ↵ 确认   Esc 关闭"
       } else {
         "↑↓ Select   ↵ Open   Esc Dismiss"
@@ -368,6 +373,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if index.is_some() {
       activate(&weak.unwrap(), &cloned, zh);
     }
+  });
+  let weak = ui.as_weak();
+  let cloned = rt.clone();
+  ui.on_quick_key(move |key| {
+    let matched = cloned
+      .borrow_mut()
+      .state
+      .as_mut()
+      .is_some_and(|state| state.quick_key(&key));
+    if matched {
+      activate(&weak.unwrap(), &cloned, zh);
+    }
+    matched
+  });
+  let weak = ui.as_weak();
+  let cloned = rt.clone();
+  ui.on_begin_search(move || {
+    if let Some(state) = &mut cloned.borrow_mut().state {
+      state.begin_search();
+    }
+    render(&weak.unwrap(), &cloned.borrow(), zh, false);
   });
   let weak = ui.as_weak();
   let cloned = rt.clone();

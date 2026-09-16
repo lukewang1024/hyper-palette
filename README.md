@@ -29,7 +29,10 @@ cache directory. It is unsigned and is not installed into Applications.
 - Up/Down select, Enter opens, Esc dismisses. Empty Backspace goes back and
   restores the parent query and selection. Hyper+H/J/K/L is also handled in the
   UI when the platform delivers the modifier chord as keyboard input.
-- Alt+letter activates the indicated item without consuming ordinary search
+- Menus with `quick: true` use their configured bare-letter shortcuts; `/`
+  enters search mode. Unmatched text also enters search; clearing the query
+  stays in search mode. Submenus start fresh and Backspace restores the parent.
+- By default, Alt+letter activates the indicated item without consuming ordinary search
   letters. On macOS, Option text translation can differ with keyboard layout;
   arrow navigation and search are the primary prototype controls.
 - Pointer movement selects; clicking activates. Disabled items cannot select.
