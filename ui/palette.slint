@@ -11,6 +11,7 @@ export component Palette inherits Window {
   in property <int> selected: -1;
   in property <string> heading;
   in property <string> footer;
+  in property <string> count-label;
   in property <string> empty-label;
   in property <bool> dark: false;
   in property <bool> composing: false;
@@ -129,8 +130,13 @@ export component Palette inherits Window {
       background: root.dark ? #ffffff0c : #0000000d;
     }
     Text {
-      x: 22px; y: parent.height - 33px; width: parent.width - 44px; height: 32px;
+      x: 22px; y: parent.height - 33px; width: parent.width - 150px; height: 32px;
       text: root.footer; font-size: 10px; color: root.muted; vertical-alignment: center;
+    }
+    Text {
+      x: parent.width - 122px; y: parent.height - 33px; width: 100px; height: 32px;
+      text: root.count-label; font-size: 10px; color: root.muted;
+      horizontal-alignment: right; vertical-alignment: center;
     }
   }
 }

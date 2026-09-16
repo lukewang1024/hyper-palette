@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+mod linux_theme;
 mod model;
 
 use model::{Request, State};
@@ -58,12 +60,7 @@ fn render(ui: &Palette, rt: &Runtime, zh: bool, scroll_to_selection: bool) {
   ui.set_empty_label(if zh { "没有匹配项" } else { "No matches" }.into());
   ui.set_footer(
     format!(
-      "{}  ·  {}  ·  {}",
-      if zh {
-        "原型 · 仅返回操作 ID"
-      } else {
-        "Prototype · action IDs only"
-      },
+      "{}  ·  {}",
       if zh {
         "↑↓ 选择   ↵ 确认   Esc 关闭"
       } else {
@@ -79,6 +76,14 @@ fn render(ui: &Palette, rt: &Runtime, zh: bool, scroll_to_selection: bool) {
         "Hyper"
       }
     )
+    .into(),
+  );
+  ui.set_count_label(
+    if zh {
+      format!("{} 项", rows.len())
+    } else {
+      format!("{} results", rows.len())
+    }
     .into(),
   );
   let viewport = 52.0 * rows.len().clamp(1, model::MAX_ROWS) as f32;
@@ -330,6 +335,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       .unwrap_or(false)
   });
   ui.hide()?;
+  #[cfg(target_os = "linux")]
+  let _theme_watchers = (!explicit_theme).then(|| linux_theme::watch(ui.as_weak()));
   rt.borrow_mut().focused = false;
   if args.contains(&"--demo".into()) {
     show(&ui, &rt, model::demo(zh), zh);
