@@ -7,4 +7,6 @@
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>NSHighResolutionCapable</key><true/>
+  <!-- The palette is a resident helper, not a switchable application. -->
+  <key>LSUIElement</key><true/>
 </dict></plist>
