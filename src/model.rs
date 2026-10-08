@@ -40,6 +40,9 @@ pub struct Menu {
 #[serde(deny_unknown_fields)]
 pub struct Request {
   pub request_id: String,
+  /// Optional macOS CGDirectDisplayID supplied by the invoking adapter.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub target_display: Option<u32>,
   pub root: String,
   pub menus: BTreeMap<String, Menu>,
 }
@@ -332,6 +335,7 @@ pub fn demo(zh: bool) -> Request {
   );
   Request {
     request_id: "demo".into(),
+    target_display: None,
     root: "menu.config".into(),
     menus,
   }
@@ -340,6 +344,20 @@ pub fn demo(zh: bool) -> Request {
 #[cfg(test)]
 mod tests {
   use super::*;
+  #[test]
+  fn target_display_is_optional_and_round_trips() {
+    let mut value = serde_json::to_value(demo(false)).unwrap();
+    assert!(value.get("target_display").is_none());
+    let old: Request = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(old.target_display, None);
+    value["target_display"] = serde_json::json!(3);
+    let targeted: Request = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(targeted.target_display, Some(3));
+    assert_eq!(serde_json::to_value(targeted).unwrap()["target_display"], 3);
+    value["target_display"] = serde_json::json!(-1);
+    assert!(serde_json::from_value::<Request>(value).is_err());
+  }
+
   #[test]
   fn dynamic_pages_restore_parent_query_selection_and_quick_mode() {
     let mut state = State::new(demo(false)).unwrap();

@@ -63,6 +63,10 @@ depth is capped at 32. Maximum 64 menus / 4096 total items. Unknown fields are
 rejected. Invalid requests leave the active menu intact. Use unique request IDs
 per invocation; stale `hide` IDs are ignored. Submenus remain inside the window.
 
+An optional `target_display` on a request selects a macOS display by its native
+CGDirectDisplayID. Each show resolves it anew; child pages retain that monitor.
+Omitted or disconnected targets fall back to the palette's current monitor.
+
 Adapters can lazily supply dynamic pages with `{"type":"push","request":...}`.
 The request must retain the current `request_id` and use fresh menu IDs. The
 renderer preserves the parent query, selection and search mode for Backspace.

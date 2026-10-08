@@ -25,11 +25,18 @@ enum Command {
   Quit,
 }
 
+// macOS desktop coordinates are logical points, including across mixed-DPI
+// screens. Keep the anchor logical so moving the window cannot rescale it.
+#[cfg(target_os = "macos")]
+type PalettePosition = slint::LogicalPosition;
+#[cfg(not(target_os = "macos"))]
+type PalettePosition = slint::PhysicalPosition;
+
 #[derive(Default)]
 struct Runtime {
   state: Option<State>,
   focused: bool,
-  anchor: Option<slint::PhysicalPosition>,
+  anchor: Option<PalettePosition>,
   theme_override: Option<bool>,
 }
 type Shared = Rc<RefCell<Runtime>>;
@@ -265,6 +272,7 @@ fn navigate(ui: &Palette, rt: &Shared, action: &str, zh: bool) {
 
 fn show(ui: &Palette, rt: &Shared, request: Request, zh: bool) {
   let id = request.request_id.clone();
+  let target_display = request.target_display;
   let state = match State::new(request) {
     Ok(state) => state,
     Err(error) => {
@@ -283,15 +291,30 @@ fn show(ui: &Palette, rt: &Shared, request: Request, zh: bool) {
   }
   sync_theme(ui, rt);
   ui.window().with_winit_window(|window| {
-    // The invoking adapter can later supply its target-monitor anchor. For now
-    // use this window's monitor and pin its top edge at the upper quarter.
-    if let Some(monitor) = window.current_monitor() {
-      let scale = window.scale_factor();
+    // Resolve the adapter's display ID afresh for every invocation. Child pages
+    // retain the same anchor; stale/disconnected targets use the current monitor.
+    #[cfg(target_os = "macos")]
+    let requested_monitor = {
+      use winit::platform::macos::MonitorHandleExtMacOS;
+      window
+        .available_monitors()
+        .find(|monitor| Some(monitor.native_id()) == target_display)
+    };
+    #[cfg(not(target_os = "macos"))]
+    let requested_monitor = {
+      let _ = target_display;
+      None::<winit::monitor::MonitorHandle>
+    };
+    if let Some(monitor) = requested_monitor.or_else(|| window.current_monitor()) {
+      let scale = monitor.scale_factor();
       let pos = monitor.position();
       let size = monitor.size();
       let x = pos.x + ((size.width as f64 - 680.0 * scale) / 2.0).max(0.0) as i32;
       let y = pos.y + (size.height as f64 * 0.20) as i32;
-      let anchor = slint::PhysicalPosition::new(x, y);
+      #[cfg(target_os = "macos")]
+      let anchor = PalettePosition::new((x as f64 / scale) as f32, (y as f64 / scale) as f32);
+      #[cfg(not(target_os = "macos"))]
+      let anchor = PalettePosition::new(x, y);
       ui.window().set_position(anchor);
       rt.borrow_mut().anchor = Some(anchor);
     }
